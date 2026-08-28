@@ -1,0 +1,429 @@
+<!-- SUPER LAB 詢價表單 — 靜態前端頁面 -->
+<!-- 這支檔案要上傳到 GitHub Pages（或其他靜態網站服務），不是給 Google Apps Script 用的。 -->
+<!-- 上傳前請先把下面「設定區」的三個值換成你自己的，詳見安裝手冊。 -->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <title>線上詢價 - SUPER LAB</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <style>
+    :root{
+      --pink-1:#f7e3e6;
+      --pink-2:#e8a9b4;
+      --brown-1:#5c3a2e;
+      --brown-2:#8a5a44;
+      --bg:#fdf6f4;
+      --card:#ffffff;
+      --text:#3a2a24;
+      --muted:#8a7570;
+      --danger:#c0392b;
+      --radius:16px;
+      font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      min-height:100vh;
+      padding-bottom:32px;
+    }
+    header{
+      background:linear-gradient(135deg,var(--pink-1),#fff);
+      padding:28px 20px 20px;
+      border-bottom:3px solid var(--pink-2);
+    }
+    header h1{
+      margin:0 0 4px;
+      font-size:20px;
+      color:var(--brown-1);
+    }
+    header p{
+      margin:0;
+      font-size:13px;
+      color:var(--muted);
+    }
+    #profile{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-top:14px;
+      font-size:13px;
+      color:var(--brown-2);
+    }
+    #profile img{
+      width:32px;height:32px;border-radius:50%;
+      border:2px solid var(--pink-2);
+    }
+    main{padding:18px 20px;}
+    .card{
+      background:var(--card);
+      border-radius:var(--radius);
+      padding:20px;
+      box-shadow:0 2px 10px rgba(92,58,46,0.08);
+    }
+    .field{margin-bottom:16px;}
+    .field:last-child{margin-bottom:0;}
+    label{
+      display:block;
+      font-size:13px;
+      font-weight:600;
+      color:var(--brown-1);
+      margin-bottom:6px;
+    }
+    label .required{color:var(--danger);margin-left:2px;}
+    input[type=text],input[type=tel],input[type=email],select,textarea{
+      width:100%;
+      padding:12px 14px;
+      border:1.5px solid #e6d5d0;
+      border-radius:10px;
+      font-size:15px;
+      color:var(--text);
+      background:#fffdfc;
+      appearance:none;
+      -webkit-appearance:none;
+    }
+    input:focus,select:focus,textarea:focus{
+      outline:none;
+      border-color:var(--pink-2);
+      box-shadow:0 0 0 3px rgba(232,169,180,0.35);
+    }
+    textarea{resize:vertical;min-height:70px;}
+    .error-text{
+      color:var(--danger);
+      font-size:12px;
+      margin-top:5px;
+      display:none;
+    }
+    .field.invalid input,.field.invalid select{border-color:var(--danger);}
+    .field.invalid .error-text{display:block;}
+    .submit-bar{margin-top:20px;}
+    button#submitBtn{
+      width:100%;
+      padding:15px;
+      border:none;
+      border-radius:12px;
+      background:var(--brown-1);
+      color:#fff;
+      font-size:16px;
+      font-weight:700;
+      letter-spacing:0.5px;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+    }
+    button#submitBtn:disabled{opacity:0.6;}
+    .spinner{
+      width:16px;height:16px;
+      border:2px solid rgba(255,255,255,0.4);
+      border-top-color:#fff;
+      border-radius:50%;
+      animation:spin 0.7s linear infinite;
+      display:none;
+    }
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .banner{
+      font-size:12px;
+      color:var(--muted);
+      text-align:center;
+      margin-top:12px;
+    }
+    #resultScreen{
+      position:fixed;inset:0;
+      background:var(--bg);
+      display:none;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      padding:32px;
+      z-index:10;
+    }
+    #resultScreen.show{display:flex;}
+    #resultScreen .icon{
+      width:64px;height:64px;
+      border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:32px;
+      margin-bottom:16px;
+    }
+    #resultScreen.success .icon{background:#e3f3e6;color:#2e7d4f;}
+    #resultScreen.fail .icon{background:#fbe4e1;color:var(--danger);}
+    #resultScreen h2{margin:0 0 8px;font-size:18px;color:var(--brown-1);}
+    #resultScreen p{margin:0 0 20px;font-size:14px;color:var(--muted);}
+    #resultScreen button{
+      padding:12px 28px;
+      border:none;
+      border-radius:10px;
+      background:var(--brown-1);
+      color:#fff;
+      font-size:14px;
+      font-weight:600;
+      cursor:pointer;
+    }
+    #resultScreen button.secondary{
+      background:transparent;
+      color:var(--brown-1);
+      border:1.5px solid var(--brown-1);
+      margin-top:10px;
+    }
+    #liffDebug{
+      display:none;margin-top:16px;font-size:11.5px;color:#c0392b;
+      background:#fbe4e1;border-radius:8px;padding:8px 10px;max-width:280px;word-break:break-all;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>線上詢價</h1>
+    <p>SUPER LAB · because results matter</p>
+    <div id="profile" style="display:none;">
+      <img id="profileImg" src="" alt="">
+      <span id="profileName"></span>
+    </div>
+  </header>
+
+  <main>
+    <form class="card" id="quoteForm" novalidate>
+      <div class="field" id="field-name">
+        <label>姓名<span class="required">*</span></label>
+        <input type="text" id="name" autocomplete="name" placeholder="請輸入您的姓名">
+        <div class="error-text">請填寫姓名</div>
+      </div>
+
+      <div class="field" id="field-phone">
+        <label>聯絡電話<span class="required">*</span></label>
+        <input type="tel" id="phone" autocomplete="tel" placeholder="例如：0912345678">
+        <div class="error-text">請填寫正確的聯絡電話</div>
+      </div>
+
+      <div class="field" id="field-email">
+        <label>Email</label>
+        <input type="email" id="email" autocomplete="email" placeholder="選填">
+        <div class="error-text">Email 格式不正確</div>
+      </div>
+
+      <div class="field" id="field-company">
+        <label>公司 / 單位</label>
+        <input type="text" id="company" placeholder="選填">
+      </div>
+
+      <div class="field" id="field-category">
+        <label>欲檢測項目<span class="required">*</span></label>
+        <select id="category">
+          <option value="">請選擇</option>
+        </select>
+        <div class="error-text">請選擇欲檢測項目</div>
+      </div>
+
+      <div class="field" id="field-note">
+        <label>備註</label>
+        <textarea id="note" placeholder="樣品狀況、想了解的檢驗項目等，選填"></textarea>
+      </div>
+
+      <div class="submit-bar">
+        <button type="submit" id="submitBtn">
+          <span class="spinner" id="spinner"></span>
+          <span id="submitLabel">送出詢價</span>
+        </button>
+        <p class="banner">送出後專人將於 1-2 個工作天內與您聯繫</p>
+      </div>
+    </form>
+  </main>
+
+  <div id="resultScreen">
+    <div class="icon" id="resultIcon">✓</div>
+    <h2 id="resultTitle">已送出，謝謝！</h2>
+    <p id="resultMessage">我們已收到您的詢價資訊。</p>
+    <button id="closeBtn">關閉視窗</button>
+    <button class="secondary" id="retryBtn" style="display:none;">重新填寫</button>
+    <p id="liffDebug"></p>
+  </div>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script>
+    // ========== 設定區：換成你自己的值 ==========
+    // 1. LIFF ID：LINE Developers Console → 你的 LINE Login Channel → LIFF 分頁
+    const LIFF_ID = '請貼上你的LIFF_ID';
+    // 2. Apps Script 部署後的網址（結尾是 /exec）
+    const GAS_ENDPOINT = '請貼上你的AppsScript網頁應用程式網址';
+    // 3. 詢價分類，要跟 Code.gs 裡的 INQUIRY_CATEGORIES 保持一致
+    const CATEGORIES = [
+      '寵物食品檢測',
+      '一般食品檢驗',
+      '化妝品/保養品檢驗',
+      '水質檢測',
+      '其他（請於備註說明）',
+    ];
+    // ============================================
+
+    let userProfile = { userId: '', displayName: '' };
+
+    function showLiffDebug(label, err) {
+      const el = document.getElementById('liffDebug');
+      const detail = err ? (err.message || err.code || JSON.stringify(err)) : '';
+      el.textContent = '⚠ ' + label + (detail ? '：' + detail : '');
+      el.style.display = 'block';
+      console.error(label, err);
+    }
+
+    // 建立分類下拉選單
+    const categorySelect = document.getElementById('category');
+    CATEGORIES.forEach((c) => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      categorySelect.appendChild(opt);
+    });
+
+    // ---------- LIFF 初始化 ----------
+    // 這個頁面是真正的靜態網站（不是 Apps Script serve 出來的），本身就是最上層視窗，
+    // 不會再被任何東西包住，liff.init() 應該可以正常運作。
+    liff.init({ liffId: LIFF_ID })
+      .then(() => {
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+        return liff.getProfile();
+      })
+      .then((profile) => {
+        if (!profile) return;
+        userProfile = { userId: profile.userId, displayName: profile.displayName };
+        document.getElementById('profileImg').src = profile.pictureUrl || '';
+        document.getElementById('profileName').textContent = profile.displayName + ' 您好';
+        document.getElementById('profile').style.display = 'flex';
+      })
+      .catch((err) => {
+        // 不在 LINE App 內開啟時（例如直接用瀏覽器測試）仍允許填表，只是不會帶入 LINE 資料
+        showLiffDebug('LIFF 初始化失敗', err);
+      });
+
+    // ---------- 表單驗證與送出 ----------
+    const form = document.getElementById('quoteForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const spinner = document.getElementById('spinner');
+    const submitLabel = document.getElementById('submitLabel');
+
+    function setFieldError(id, invalid) {
+      document.getElementById('field-' + id).classList.toggle('invalid', invalid);
+    }
+
+    function validate() {
+      const name = document.getElementById('name').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const category = document.getElementById('category').value;
+
+      const nameOk = name.length > 0;
+      const phoneOk = /^[0-9+#\-\s]{8,15}$/.test(phone);
+      const emailOk = email === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      const categoryOk = category !== '';
+
+      setFieldError('name', !nameOk);
+      setFieldError('phone', !phoneOk);
+      setFieldError('email', !emailOk);
+      setFieldError('category', !categoryOk);
+
+      return nameOk && phoneOk && emailOk && categoryOk;
+    }
+
+    function buildPayload() {
+      return {
+        userId: userProfile.userId,
+        displayName: userProfile.displayName,
+        name: document.getElementById('name').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        company: document.getElementById('company').value.trim(),
+        category: document.getElementById('category').value,
+        note: document.getElementById('note').value.trim(),
+      };
+    }
+
+    function setLoading(isLoading) {
+      submitBtn.disabled = isLoading;
+      spinner.style.display = isLoading ? 'inline-block' : 'none';
+      submitLabel.textContent = isLoading ? '送出中…' : '送出詢價';
+    }
+
+    function showResult(success, message) {
+      const screen = document.getElementById('resultScreen');
+      const icon = document.getElementById('resultIcon');
+      const title = document.getElementById('resultTitle');
+      const msg = document.getElementById('resultMessage');
+      const retryBtn = document.getElementById('retryBtn');
+
+      screen.className = success ? 'show success' : 'show fail';
+      icon.textContent = success ? '✓' : '!';
+      title.textContent = success ? '已送出，謝謝！' : '送出失敗';
+      msg.textContent = success
+        ? '我們已收到您的詢價資訊，專人將於 1-2 個工作天內與您聯繫。'
+        : (message || '請稍後再試一次，或直接透過聊天室與我們聯繫。');
+      retryBtn.style.display = success ? 'none' : 'inline-block';
+    }
+
+    // 人潮多時 Sheet 寫入會排隊，後端排不到鎖會回傳 busy:true（不是資料有誤）。
+    // 這裡最多自動重試 2 次，中間才把「送出失敗」顯示給使用者。
+    const MAX_AUTO_RETRY = 2;
+    const RETRY_DELAY_MS = 1500;
+
+    function attemptSubmit(payload, retriesLeft) {
+      // 刻意不設定 Content-Type，讓瀏覽器用預設的 text/plain 送出，
+      // 這樣才不會觸發 CORS 預檢請求（Apps Script 沒辦法妥善處理預檢請求）。
+      fetch(GAS_ENDPOINT, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+        .then((res) => res.json())
+        .then((res) => {
+          if (res && res.success) {
+            setLoading(false);
+            showResult(true);
+            return;
+          }
+          if (res && res.busy && retriesLeft > 0) {
+            submitLabel.textContent = '人潮較多，自動重試中…';
+            setTimeout(() => attemptSubmit(payload, retriesLeft - 1), RETRY_DELAY_MS);
+            return;
+          }
+          setLoading(false);
+          showResult(false, res && res.message);
+        })
+        .catch((err) => {
+          setLoading(false);
+          showResult(false, err && err.message);
+        });
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!validate()) return;
+
+      setLoading(true);
+      attemptSubmit(buildPayload(), MAX_AUTO_RETRY);
+    });
+
+    document.getElementById('closeBtn').addEventListener('click', function () {
+      try {
+        if (liff.isInClient()) {
+          liff.closeWindow(); // 直接關閉 LIFF 視窗，回到 LINE 聊天室
+        } else {
+          document.getElementById('resultScreen').classList.remove('show');
+        }
+      } catch (err) {
+        showLiffDebug('關閉視窗失敗', err);
+      }
+    });
+
+    document.getElementById('retryBtn').addEventListener('click', function () {
+      document.getElementById('resultScreen').classList.remove('show');
+    });
+  </script>
+</body>
+</html>
