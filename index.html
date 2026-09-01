@@ -111,7 +111,7 @@
       font-weight:400;
       color:var(--text);
     }
-    .checkbox-group input[type=checkbox]{
+    .checkbox-group input[type=checkbox],.checkbox-group input[type=radio]{
       width:17px;height:17px;
       accent-color:var(--pink-2);
       flex:none;
@@ -231,6 +231,12 @@
 
   <main>
     <form class="card" id="quoteForm" novalidate>
+
+      <div class="field" id="field-customerType">
+        <label>客戶類型<span class="required">*</span></label>
+        <div class="checkbox-group" id="customerTypeGroup"></div>
+        <div class="error-text">請選擇客戶類型</div>
+      </div>
 
       <div class="field" id="field-companyName">
         <label>公司名稱<span class="required">*</span></label>
@@ -362,6 +368,9 @@
     ];
     const SUBJECTS = ['1. 報價服務', '2. 特殊實驗設計', '3. 行銷合作提案', '4. 商標授權申請', '5. 其他事務'];
     const NEWSLETTER_CATEGORIES = ['食品', '健康食品', '化粧品', '中西藥品', '醫學', '醫療器材', '化學品/農藥', '環境/水質', '抗菌/抗病毒', '實驗室能力試驗'];
+    // 「客戶類型」是官網沒有的題目，因應現場反饋（個人戶沒有公司名稱/統一編號可填）新增。
+    // 選「個人戶」時，公司名稱、統一編號會自動代入「個人戶」文字並隱藏，不用手動填寫。
+    const CUSTOMER_TYPES = ['公司戶', '個人戶'];
     // ============================================
 
     let userProfile = { userId: '', displayName: '' };
@@ -401,13 +410,37 @@
       });
     }
 
+    // 單選用（例如客戶類型：公司戶／個人戶只能擇一），寫法跟複選方塊很像，差在 type 是 radio。
+    function fillRadioGroup(containerEl, groupName, options) {
+      options.forEach((opt, i) => {
+        const id = groupName + '_' + i;
+        const wrap = document.createElement('label');
+        wrap.className = 'opt';
+        wrap.setAttribute('for', id);
+        const rb = document.createElement('input');
+        rb.type = 'radio';
+        rb.id = id;
+        rb.name = groupName;
+        rb.value = opt;
+        wrap.appendChild(rb);
+        wrap.appendChild(document.createTextNode(opt));
+        containerEl.appendChild(wrap);
+      });
+    }
+
     fillSelect(document.getElementById('region'), REGIONS);
     fillSelect(document.getElementById('subject'), SUBJECTS);
     fillCheckboxGroup(document.getElementById('bizCategoriesGroup'), 'bizCategories', BIZ_CATEGORIES);
     fillCheckboxGroup(document.getElementById('subscribeCategoriesGroup'), 'subscribeCategories', NEWSLETTER_CATEGORIES);
+    fillRadioGroup(document.getElementById('customerTypeGroup'), 'customerType', CUSTOMER_TYPES);
 
     function getCheckedValues(groupName) {
       return Array.from(document.querySelectorAll('input[name="' + groupName + '"]:checked')).map((el) => el.value);
+    }
+
+    function getCheckedValue(groupName) {
+      const el = document.querySelector('input[name="' + groupName + '"]:checked');
+      return el ? el.value : '';
     }
 
     // 「訂閱台美檢驗電子報」選「訂閱」才顯示、並要求勾選電子報訂閱項目；選「不訂閱」就隱藏並視為不需填寫。
@@ -417,6 +450,20 @@
       const show = subscribeSelect.value === '訂閱';
       subscribeCategoriesField.classList.toggle('hidden', !show);
       if (!show) subscribeCategoriesField.classList.remove('invalid');
+    });
+
+    // 「客戶類型」選「個人戶」時，公司名稱／統一編號隱藏起來、不用填也不會擋在必填檢查；
+    // 選「公司戶」時才顯示這兩欄，並要求正常填寫。
+    const companyNameField = document.getElementById('field-companyName');
+    const taxIdField = document.getElementById('field-taxId');
+    document.getElementById('customerTypeGroup').addEventListener('change', function () {
+      const isCompany = getCheckedValue('customerType') === '公司戶';
+      companyNameField.classList.toggle('hidden', !isCompany);
+      taxIdField.classList.toggle('hidden', !isCompany);
+      if (!isCompany) {
+        companyNameField.classList.remove('invalid');
+        taxIdField.classList.remove('invalid');
+      }
     });
 
     // ---------- LIFF 初始化 ----------
@@ -453,6 +500,8 @@
     }
 
     function validate() {
+      const customerType = getCheckedValue('customerType');
+      const isCompany = customerType === '公司戶';
       const companyName = document.getElementById('companyName').value.trim();
       const taxId = document.getElementById('taxId').value.trim();
       const name = document.getElementById('name').value.trim();
@@ -467,8 +516,10 @@
       const subscribe = document.getElementById('subscribe').value;
       const subscribeCategories = getCheckedValues('subscribeCategories');
 
-      const companyNameOk = companyName.length > 0;
-      const taxIdOk = /^\d{8}$/.test(taxId);
+      const customerTypeOk = customerType !== '';
+      // 個人戶不用填公司名稱/統一編號，這兩欄自動視為已通過檢查
+      const companyNameOk = !isCompany || companyName.length > 0;
+      const taxIdOk = !isCompany || /^\d{8}$/.test(taxId);
       const nameOk = name.length > 0;
       const titleOk = title !== '';
       const bizCategoriesOk = bizCategories.length > 0;
@@ -482,8 +533,9 @@
       // 電子報訂閱項目只有在選「訂閱」時才要求必填，跟官網邏輯一致
       const subscribeCategoriesOk = subscribe !== '訂閱' || subscribeCategories.length > 0;
 
-      setFieldError('companyName', !companyNameOk);
-      setFieldError('taxId', !taxIdOk);
+      setFieldError('customerType', !customerTypeOk);
+      setFieldError('companyName', isCompany && !companyNameOk);
+      setFieldError('taxId', isCompany && !taxIdOk);
       setFieldError('name', !nameOk);
       setFieldError('title', !titleOk);
       setFieldError('bizCategories', !bizCategoriesOk);
@@ -496,17 +548,20 @@
       setFieldError('subscribe', !subscribeOk);
       setFieldError('subscribeCategories', !subscribeCategoriesOk);
 
-      return companyNameOk && taxIdOk && nameOk && titleOk && bizCategoriesOk && regionOk &&
+      return customerTypeOk && companyNameOk && taxIdOk && nameOk && titleOk && bizCategoriesOk && regionOk &&
         phoneOk && emailOk && subjectOk && productNameOk && messageOk && subscribeOk && subscribeCategoriesOk;
     }
 
     function buildPayload() {
       const subscribe = document.getElementById('subscribe').value;
+      const customerType = getCheckedValue('customerType');
+      const isCompany = customerType === '公司戶';
       return {
         userId: userProfile.userId,
         displayName: userProfile.displayName,
-        companyName: document.getElementById('companyName').value.trim(),
-        taxId: document.getElementById('taxId').value.trim(),
+        customerType: customerType,
+        companyName: isCompany ? document.getElementById('companyName').value.trim() : '個人戶',
+        taxId: isCompany ? document.getElementById('taxId').value.trim() : '個人戶',
         name: document.getElementById('name').value.trim(),
         title: document.getElementById('title').value,
         bizCategories: getCheckedValues('bizCategories').join('、'),
