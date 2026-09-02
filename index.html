@@ -252,7 +252,7 @@
       </div>
 
       <div class="field" id="field-name">
-        <label>您的姓名<span class="required">*</span><span class="hint hidden" id="nameHint">請填寫完整全名</span></label>
+        <label>您的姓名<span class="required">*</span><span class="hint hidden" id="nameHint">個人戶請填寫完整全名，不要填「陳先生」、「何小姐」這種稱呼方式</span></label>
         <input type="text" id="name" autocomplete="name" placeholder="請輸入您的姓名">
         <div class="error-text">請填寫姓名</div>
       </div>
@@ -352,9 +352,9 @@
   <script>
     // ========== 設定區：換成你自己的值 ==========
     // 1. LIFF ID：LINE Developers Console → 你的 LINE Login Channel → LIFF 分頁
-    const LIFF_ID = '2011305107-C7NJ7XOV';
+    const LIFF_ID = '請貼上你的LIFF_ID';
     // 2. Apps Script 部署後的網址（結尾是 /exec）
-    const GAS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyZkLShZCzEgIwu0QtB6h1biwPfGxxiFkMclIFS5eQ5lqGttjJoa9FWuszobu9kdisQ8g/exec';
+    const GAS_ENDPOINT = '請貼上你的AppsScript網頁應用程式網址';
 
     // 以下題目與選項均對照官網 https://www.superlab.com.tw/connection/ 逐字核對，
     // 如果官網表單日後更新題目/選項，要記得回來同步修改這裡（跟 Code.gs 裡的驗證邏輯要一起改）。
@@ -445,20 +445,22 @@
     }
 
     // 「訂閱台美檢驗電子報」選「訂閱」才顯示、並要求勾選電子報訂閱項目；選「不訂閱」就隱藏並視為不需填寫。
+    // 抽成獨立函式，這樣「使用者手動切換」跟「帶入上次答案後自動同步畫面」都能共用同一套邏輯。
     const subscribeSelect = document.getElementById('subscribe');
     const subscribeCategoriesField = document.getElementById('field-subscribeCategories');
-    subscribeSelect.addEventListener('change', function () {
+    function updateSubscribeVisibility() {
       const show = subscribeSelect.value === '訂閱';
       subscribeCategoriesField.classList.toggle('hidden', !show);
       if (!show) subscribeCategoriesField.classList.remove('invalid');
-    });
+    }
+    subscribeSelect.addEventListener('change', updateSubscribeVisibility);
 
     // 「客戶類型」選「個人戶」時，公司名稱／統一編號隱藏起來、不用填也不會擋在必填檢查；
-    // 選「公司戶」時才顯示這兩欄，並要求正常填寫。
+    // 選「公司戶」時才顯示這兩欄，並要求正常填寫。同樣抽成獨立函式供帶入上次答案時共用。
     const companyNameField = document.getElementById('field-companyName');
     const taxIdField = document.getElementById('field-taxId');
     const nameHint = document.getElementById('nameHint');
-    document.getElementById('customerTypeGroup').addEventListener('change', function () {
+    function updateCustomerTypeVisibility() {
       const isCompany = getCheckedValue('customerType') === '公司戶';
       companyNameField.classList.toggle('hidden', !isCompany);
       taxIdField.classList.toggle('hidden', !isCompany);
@@ -468,7 +470,42 @@
       }
       // 個人戶容易誤填「陳先生」「何小姐」這種稱呼進姓名欄，這裡提醒要填完整全名
       nameHint.classList.toggle('hidden', isCompany);
-    });
+    }
+    document.getElementById('customerTypeGroup').addEventListener('change', updateCustomerTypeVisibility);
+
+    // ---------- 帶入上次填過的資料（只帶「身份資料」類題目，詢價內容每次都要重填） ----------
+    function setCheckedValues(groupName, valuesStr) {
+      const values = String(valuesStr || '').split('、').map((s) => s.trim()).filter(Boolean);
+      document.querySelectorAll('input[name="' + groupName + '"]').forEach((el) => {
+        el.checked = values.indexOf(el.value) !== -1;
+      });
+    }
+
+    function prefillFromPreviousAnswers(userId) {
+      fetch(GAS_ENDPOINT + '?action=lookup&userId=' + encodeURIComponent(userId), { method: 'GET' })
+        .then((res) => res.json())
+        .then((data) => {
+          if (!data || !data.found) return;
+          setCheckedValues('customerType', data.customerType);
+          document.getElementById('companyName').value = data.companyName === '個人戶' ? '' : (data.companyName || '');
+          document.getElementById('taxId').value = data.taxId === '個人戶' ? '' : (data.taxId || '');
+          document.getElementById('name').value = data.name || '';
+          document.getElementById('title').value = data.title || '';
+          setCheckedValues('bizCategories', data.bizCategories);
+          document.getElementById('region').value = data.region || '';
+          document.getElementById('phone').value = data.phone || '';
+          document.getElementById('email').value = data.email || '';
+          document.getElementById('subscribe').value = data.subscribe || '';
+          setCheckedValues('subscribeCategories', data.subscribeCategories);
+          // 帶完值後，手動同步一次「客戶類型」「訂閱電子報」控制的顯示/隱藏邏輯
+          updateCustomerTypeVisibility();
+          updateSubscribeVisibility();
+        })
+        .catch((err) => {
+          // 帶入失敗不影響正常填表，靜默記錄就好，不打擾使用者
+          console.error('帶入上次填寫資料失敗：', err);
+        });
+    }
 
     // ---------- LIFF 初始化 ----------
     // 這個頁面是真正的靜態網站（不是 Apps Script serve 出來的），本身就是最上層視窗，
@@ -487,6 +524,8 @@
         document.getElementById('profileImg').src = profile.pictureUrl || '';
         document.getElementById('profileName').textContent = profile.displayName + ' 您好';
         document.getElementById('profile').style.display = 'flex';
+        // 帶入這位 LINE 使用者上次填過的身份資料，省得每次都要重填一樣的內容
+        prefillFromPreviousAnswers(profile.userId);
       })
       .catch((err) => {
         // 不在 LINE App 內開啟時（例如直接用瀏覽器測試）仍允許填表，只是不會帶入 LINE 資料
