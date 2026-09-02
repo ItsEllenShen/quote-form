@@ -78,6 +78,7 @@
     label .required{color:var(--danger);margin-left:2px;}
     label .hint{display:block;font-weight:400;color:var(--muted);font-size:11.5px;margin-top:3px;}
     label .hint.hidden{display:none;}
+    .subscribed-note{background:#e3f3e6;color:#2e7d4f;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;}
     input[type=text],input[type=tel],input[type=email],select,textarea{
       width:100%;
       padding:12px 14px;
@@ -252,7 +253,7 @@
       </div>
 
       <div class="field" id="field-name">
-        <label>您的姓名<span class="required">*</span><span class="hint hidden" id="nameHint">個人戶請填寫完整全名，不要填「陳先生」、「何小姐」這種稱呼方式</span></label>
+        <label>您的姓名<span class="required">*</span><span class="hint hidden" id="nameHint">個人戶請填寫完整全名</span></label>
         <input type="text" id="name" autocomplete="name" placeholder="請輸入您的姓名">
         <div class="error-text">請填寫姓名</div>
       </div>
@@ -327,6 +328,10 @@
         <label>電子報訂閱項目<span class="hint">選擇「訂閱」時才需要填寫</span></label>
         <div class="checkbox-group" id="subscribeCategoriesGroup"></div>
         <div class="error-text">請至少勾選一項電子報訂閱項目</div>
+      </div>
+
+      <div class="field hidden" id="field-alreadySubscribedNote">
+        <div class="subscribed-note">✓ 您已訂閱過電子報，本次不需要重新填寫</div>
       </div>
 
       <div class="submit-bar">
@@ -447,7 +452,9 @@
     // 「訂閱台美檢驗電子報」選「訂閱」才顯示、並要求勾選電子報訂閱項目；選「不訂閱」就隱藏並視為不需填寫。
     // 抽成獨立函式，這樣「使用者手動切換」跟「帶入上次答案後自動同步畫面」都能共用同一套邏輯。
     const subscribeSelect = document.getElementById('subscribe');
+    const subscribeField = document.getElementById('field-subscribe');
     const subscribeCategoriesField = document.getElementById('field-subscribeCategories');
+    const alreadySubscribedNote = document.getElementById('field-alreadySubscribedNote');
     function updateSubscribeVisibility() {
       const show = subscribeSelect.value === '訂閱';
       subscribeCategoriesField.classList.toggle('hidden', !show);
@@ -495,11 +502,25 @@
           document.getElementById('region').value = data.region || '';
           document.getElementById('phone').value = data.phone || '';
           document.getElementById('email').value = data.email || '';
-          document.getElementById('subscribe').value = data.subscribe || '';
-          setCheckedValues('subscribeCategories', data.subscribeCategories);
-          // 帶完值後，手動同步一次「客戶類型」「訂閱電子報」控制的顯示/隱藏邏輯
+
+          // 電子報訂閱題目規則比較特別：
+          // 上次選「訂閱」→ 這題整個不用再問，直接帶入上次的訂閱項目、隱藏題目、改顯示一行提醒文字
+          // 上次選「不訂閱」、或是第一次填 → 都要空白讓使用者重新選一次，不預帶值
+          //（因為「不訂閱」不代表以後都不訂閱，每次都給機會讓他改變心意；只有已經訂閱過的人不用再被問）
+          const wasSubscribed = data.subscribe === '訂閱' && data.subscribeCategories && String(data.subscribeCategories).trim() !== '';
+          if (wasSubscribed) {
+            subscribeSelect.value = '訂閱';
+            setCheckedValues('subscribeCategories', data.subscribeCategories);
+            subscribeField.classList.add('hidden');
+            subscribeCategoriesField.classList.add('hidden');
+            alreadySubscribedNote.classList.remove('hidden');
+          } else {
+            subscribeSelect.value = '';
+            setCheckedValues('subscribeCategories', '');
+          }
+
+          // 帶完值後，手動同步一次「客戶類型」欄位控制的顯示/隱藏邏輯（訂閱欄位上面已經處理過了）
           updateCustomerTypeVisibility();
-          updateSubscribeVisibility();
         })
         .catch((err) => {
           // 帶入失敗不影響正常填表，靜默記錄就好，不打擾使用者
